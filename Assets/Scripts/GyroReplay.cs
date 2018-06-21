@@ -14,6 +14,11 @@ namespace DefaultNamespace
 
         public NetworkController networkController;
 
+
+        private Quaternion referenceQuaternion;
+        private bool hasReference = false;
+        
+
         public void Start()
         {
             networkController.onMessageReceived += OnMessageReceived;
@@ -39,9 +44,34 @@ namespace DefaultNamespace
             var message = formatter.Deserialize(stream) as GyroCapture.ControllerStatus;
 
             var quaternion = message.quaternion.ToQuaternion();
-            targetTransform.localRotation = quaternion;
-            text.text = quaternion.ToString();
-            pressIndicator.SetActive(message.triggerDown);
+
+            if (!hasReference)
+            {
+                referenceQuaternion = quaternion;
+                hasReference = true;
+            }
+
+            if (message.extra3)
+            {
+                referenceQuaternion = quaternion;
+            }
+            //referenceQuaternion.ToEulerAngles();
+
+            text.text = string.Format("Attitude: {0}\nTrigger: {1}\nTrackButton: {2}\nExtra1: {3}\nExtra2: {4}\nExtra3: {5}\nTrackpad: {6}\nTrackpadTouched: {7}", quaternion,message.trigger, message.trackpadButton, message.extra1, message.extra2, message.extra3, message.trackpad.ToVector2(), message.trackpadTouched);
+            
+            var referenceTransformed = Quaternion.Inverse(GyroToUnity(referenceQuaternion));
+            targetTransform.localRotation = referenceTransformed * GyroToUnity(quaternion);
+            
+            
+            //targetTransform.localRotation = relative;
+            //text.text = relative.ToString();
+            pressIndicator.SetActive(message.trigger);
+        }
+        
+        
+        private static Quaternion GyroToUnity(Quaternion q)
+        {
+            return new Quaternion(q.x, q.y, -q.z, -q.w);
         }
     }
 }
